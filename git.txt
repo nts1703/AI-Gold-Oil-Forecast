@@ -1,0 +1,5 @@
+git add .
+git commit -m "Mô tả những gì bạn đã thay đổi"
+git push
+
+git pull kéo git về
