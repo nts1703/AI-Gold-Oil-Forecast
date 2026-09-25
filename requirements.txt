@@ -1,0 +1,18 @@
+# Data & Crawling
+pandas
+numpy
+yfinance
+feedparser
+requests
+python-dotenv
+
+# AI & ML
+google-generativeai
+scikit-learn
+lightgbm
+
+# Backend & Web Dashboard
+fastapi
+uvicorn
+streamlit
+supabase
