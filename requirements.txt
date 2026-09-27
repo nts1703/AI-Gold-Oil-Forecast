@@ -16,3 +16,4 @@ fastapi
 uvicorn
 streamlit
 supabase
+plotly
