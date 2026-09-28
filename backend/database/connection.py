@@ -1,33 +1,39 @@
 import os
+import re
 from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
-# Tìm đường dẫn tuyệt đối tới file .env ở thư mục gốc dự án
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env_path = BASE_DIR / ".env"
 
-# Load file .env nếu tồn tại (môi trường Local), không bắt buộc phải có khi chạy CI/CD
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 else:
     load_dotenv()
 
-# Ưu tiên lấy DATABASE_URL, nếu không có sẽ tự chuyển sang lấy SUPABASE_URL
-DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_URL")
+# 1. Lấy giá trị biến môi trường và làm sạch khoảng trắng / dấu ngoặc kép dư thừa
+raw_db_url = os.getenv("DATABASE_URL") or ""
+raw_db_url = raw_db_url.strip().strip("'").strip('"')
 
-if not DATABASE_URL:
+# 2. Xử lý trường hợp bị dán nhầm URL https:// hoặc để trống
+if not raw_db_url or raw_db_url.startswith("https://") or raw_db_url.startswith("http://"):
     raise ValueError(
-        "Chưa tìm thấy biến môi trường DATABASE_URL hoặc SUPABASE_URL. "
-        "Vui lòng cấu hình trong file .env (Local) hoặc GitHub Secrets."
+        "\n" + "="*70 + "\n"
+        "❌ LỖI CẤU HÌNH DATABASE_URL:\n"
+        f"Giá trị DATABASE_URL hiện tại đang là: '{raw_db_url}'\n\n"
+        "DATABASE_URL KHÔNG ĐƯỢC bắt đầu bằng 'https://'!\n"
+        "Bạn cần sửa Secret 'DATABASE_URL' trên GitHub thành dạng PostgreSQL URI:\n"
+        "postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres\n"
+        "======================================================================\n"
     )
 
-# Chuẩn hóa prefix cho SQLAlchemy nếu dùng URI postgres:// cũ
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# 3. Chuẩn hóa prefix dialect cho SQLAlchemy
+if raw_db_url.startswith("postgres://"):
+    raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(raw_db_url, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
