@@ -17,3 +17,9 @@ uvicorn
 streamlit
 supabase
 plotly
+
+beautifulsoup4
+lxml
+urllib3
+sqlalchemy
+psycopg2-binary

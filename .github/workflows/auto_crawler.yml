@@ -2,7 +2,6 @@ name: Tự động cào dữ liệu hàng ngày
 
 on:
   schedule:
-    # Chạy vào 08:00 sáng và 17:00 chiều giờ VN (tương ứng 01:00 và 10:00 UTC)
     - cron: '0 1,10 * * *'
   workflow_dispatch:
 
@@ -22,8 +21,8 @@ jobs:
       - name: Cài đặt thư viện
         run: |
           python -m pip install --upgrade pip
+          pip install sqlalchemy psycopg2-binary requests beautifulsoup4 supabase python-dotenv lxml urllib3 yfinance
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install requests beautifulsoup4 supabase python-dotenv lxml urllib3 sqlalchemy psycopg2-binary yfinance
 
       - name: Chạy các file Crawler
         env:
@@ -33,5 +32,4 @@ jobs:
         run: |
           python data_pipeline/vn_gold_crawler.py
           python data_pipeline/vn_fuel_crawler.py
-          # Nếu có file market_data.py thì chạy thêm dòng này:
           python data_pipeline/market_data.py
