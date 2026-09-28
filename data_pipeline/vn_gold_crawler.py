@@ -11,6 +11,10 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Thiếu SUPABASE_URL hoặc SUPABASE_KEY trong biến môi trường.")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS = {
@@ -47,15 +51,16 @@ def crawl_vn_gold():
                     buy_price = int(buy_val * 1000) if buy_val < 1000000 else int(buy_val)
                     sell_price = int(sell_val * 1000) if sell_val < 1000000 else int(sell_val)
                     
-                    category_name = None
+                    # Chuẩn hóa tên mã category cho khớp DB lịch sử
+                    category_code = None
                     if any(k in name.upper() for k in ["1L", "10L", "SJC"]):
-                        category_name = "Vàng SJC (1 Lượng)"
+                        category_code = "GOLD_SJC"
                     elif "NHẪN" in name.upper():
-                        category_name = "Vàng Nhẫn Trơn 9999"
+                        category_code = "GOLD_RING_9999"
                         
-                    if category_name:
+                    if category_code:
                         gold_items.append({
-                            "category": category_name,
+                            "category": category_code,
                             "buy_price": buy_price,
                             "sell_price": sell_price,
                             "unit": "Lượng",
@@ -95,15 +100,16 @@ def crawl_vn_gold():
                         if sell_price < 1000000:
                             sell_price *= 1000
                             
-                        category_name = None
+                        # Chuẩn hóa tên mã category cho khớp DB lịch sử
+                        category_code = None
                         if any(k in name.upper() for k in ["SJC", "1L"]):
-                            category_name = "Vàng SJC (1 Lượng)"
+                            category_code = "GOLD_SJC"
                         elif "NHẪN" in name.upper():
-                            category_name = "Vàng Nhẫn Trơn 9999"
+                            category_code = "GOLD_RING_9999"
                             
-                        if category_name:
+                        if category_code:
                             gold_items.append({
-                                "category": category_name,
+                                "category": category_code,
                                 "buy_price": buy_price,
                                 "sell_price": sell_price,
                                 "unit": "Lượng",
@@ -116,7 +122,7 @@ def crawl_vn_gold():
         except Exception as e:
             print(f"   [!] Nguồn Webgia gặp lỗi: {e}")
 
-    # --- LƯU VÀO SUPABASE ---
+    # --- LƯU VÀO SUPABASE (Thêm mới bản ghi để lưu chuỗi thời gian) ---
     if not gold_items:
         print("   [⚠️] Không tìm thấy dữ liệu giá vàng từ các nguồn.")
         return
@@ -126,14 +132,8 @@ def crawl_vn_gold():
         cat = item["category"]
         if cat not in seen:
             seen.add(cat)
-            check_res = supabase.table("vn_commodity_prices").select("id").eq("category", cat).execute()
-            if check_res.data and len(check_res.data) > 0:
-                row_id = check_res.data[0]["id"]
-                supabase.table("vn_commodity_prices").update(item).eq("id", row_id).execute()
-            else:
-                supabase.table("vn_commodity_prices").insert(item).execute()
-                
-            print(f"   [✓] Cập nhật DB: {cat} -> Mua: {item['buy_price']:,} đ | Bán: {item['sell_price']:,} đ")
+            supabase.table("vn_commodity_prices").insert(item).execute()
+            print(f"   [✓] Đã lưu bản ghi mới DB: {cat} -> Mua: {item['buy_price']:,} đ | Bán: {item['sell_price']:,} đ")
 
 if __name__ == "__main__":
     crawl_vn_gold()

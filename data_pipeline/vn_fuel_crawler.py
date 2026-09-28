@@ -11,6 +11,10 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Thiếu SUPABASE_URL hoặc SUPABASE_KEY trong biến môi trường.")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS = {
@@ -37,18 +41,19 @@ def crawl_vn_fuel():
                 
                 if price_str.isdigit():
                     price = int(price_str)
-                    category_name = None
+                    category_code = None
                     
+                    # Chuẩn hóa tên mã category cho khớp DB lịch sử
                     if "RON 95" in name.upper():
-                        category_name = "Xăng RON 95-III (1 Lít)"
+                        category_code = "GAS_RON95"
                     elif "E5" in name.upper() or "RON 92" in name.upper():
-                        category_name = "Xăng E5 RON 92 (1 Lít)"
+                        category_code = "GAS_E5RON92"
                     elif "DO 0,05S" in name.upper() or "DO 0.05S" in name.upper() or "DẦU DO" in name.upper():
-                        category_name = "Dầu DO 0,05S (1 Lít)"
+                        category_code = "DIESEL"
                         
-                    if category_name:
+                    if category_code:
                         fuel_items.append({
-                            "category": category_name,
+                            "category": category_code,
                             "buy_price": 0,
                             "sell_price": price,
                             "unit": "Lít",
@@ -59,21 +64,18 @@ def crawl_vn_fuel():
                             "recorded_at": datetime.now(timezone.utc).isoformat()
                         })
 
+        if not fuel_items:
+            print("   [⚠️] Không tìm thấy dữ liệu giá xăng dầu.")
+            return
+
+        # --- LƯU VÀO SUPABASE (Thêm mới bản ghi để lưu chuỗi thời gian) ---
         seen = set()
         for item in fuel_items:
             cat = item["category"]
             if cat not in seen:
                 seen.add(cat)
-                
-                # Logic ghi DB an toàn: Tìm bản ghi cũ theo category
-                check_res = supabase.table("vn_commodity_prices").select("id").eq("category", cat).execute()
-                if check_res.data and len(check_res.data) > 0:
-                    row_id = check_res.data[0]["id"]
-                    supabase.table("vn_commodity_prices").update(item).eq("id", row_id).execute()
-                else:
-                    supabase.table("vn_commodity_prices").insert(item).execute()
-                    
-                print(f"   [✓] Cập nhật DB: {cat} -> Bán: {item['sell_price']:,} VNĐ/lít")
+                supabase.table("vn_commodity_prices").insert(item).execute()
+                print(f"   [✓] Đã lưu bản ghi mới DB: {cat} -> Bán: {item['sell_price']:,} VNĐ/lít")
 
     except Exception as e:
         print(f"   [!] Lỗi cào giá xăng dầu: {e}")
