@@ -29,6 +29,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DATABASE_URL: ${{ secrets.SUPABASE_URL }}
         run: |
           python data_pipeline/vn_gold_crawler.py
           python data_pipeline/vn_fuel_crawler.py

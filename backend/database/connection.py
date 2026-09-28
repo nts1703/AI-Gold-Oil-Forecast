@@ -8,14 +8,22 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env_path = BASE_DIR / ".env"
 
-load_dotenv(dotenv_path=env_path)
+# Load file .env nếu tồn tại (môi trường Local), không bắt buộc phải có khi chạy CI/CD
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Ưu tiên lấy DATABASE_URL, nếu không có sẽ tự chuyển sang lấy SUPABASE_URL
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError(f"Chưa tìm thấy DATABASE_URL trong file .env tại: {env_path}")
+    raise ValueError(
+        "Chưa tìm thấy biến môi trường DATABASE_URL hoặc SUPABASE_URL. "
+        "Vui lòng cấu hình trong file .env (Local) hoặc GitHub Secrets."
+    )
 
-# Chuẩn hóa prefix cho SQLAlchemy nếu cần
+# Chuẩn hóa prefix cho SQLAlchemy nếu dùng URI postgres:// cũ
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
