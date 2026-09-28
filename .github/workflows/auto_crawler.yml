@@ -1,0 +1,38 @@
+name: Tự động cào dữ liệu hàng ngày
+
+on:
+  schedule:
+    # Chạy 2 lần/ngày vào lúc 00:00 và 12:00 UTC (tương đương 7h sáng và 7h tối giờ VN)
+    - cron: '0 0,12 * * *'
+  workflow_dispatch: # Cho phép anh/chị lên web bấm nút chạy thủ công bất cứ lúc nào
+
+jobs:
+  run-crawler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lấy code từ GitHub
+        uses: actions/checkout@v3
+
+      - name: Cài đặt Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Cài đặt thư viện
+        run: pip install -r requirements.txt
+
+      - name: Chạy các file Crawler
+        env:
+          # Lấy các biến môi trường bảo mật từ GitHub Secrets
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} 
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # 1. Cập nhật dữ liệu Quốc tế
+          python data_pipeline/market_data.py
+          python data_pipeline/news_crawler.py
+          
+          # 2. Cập nhật dữ liệu Việt Nam
+          python data_pipeline/vn_gold_crawler.py
+          python data_pipeline/vn_fuel_crawler.py
+          python data_pipeline/vn_news_crawler.py
