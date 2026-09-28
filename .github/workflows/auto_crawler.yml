@@ -1,37 +1,103 @@
-name: Tự động cào dữ liệu hàng ngày
+name: Tự động cập nhật dữ liệu AI Gold Oil
 
 on:
   schedule:
-    - cron: '0 1,10 * * *'
+    # Chạy mỗi giờ tại phút 17 (tránh nghẽn hệ thống vào đầu giờ :00)
+    - cron: '17 * * * *'
+  # Cho phép kích hoạt chạy thủ công từ tab Actions trên GitHub
   workflow_dispatch:
 
 jobs:
   run-crawler:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
+      # 1. Lấy source code từ GitHub repository
       - name: Lấy code từ GitHub
         uses: actions/checkout@v4
 
+      # 2. Cài đặt môi trường Python
       - name: Cài đặt Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
 
+      # 3. Cài đặt các thư viện cần thiết
       - name: Cài đặt thư viện
         run: |
           python -m pip install --upgrade pip
-          pip install sqlalchemy psycopg2-binary requests beautifulsoup4 supabase python-dotenv lxml urllib3 yfinance
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install \
+              sqlalchemy \
+              psycopg2-binary \
+              requests \
+              beautifulsoup4 \
+              supabase \
+              python-dotenv \
+              lxml \
+              urllib3 \
+              yfinance
+          fi
 
-      - name: Chạy các file Crawler
+      # 4. Kiểm tra môi trường Python
+      - name: Kiểm tra Python
+        run: |
+          python --version
+          pip --version
+
+      # 5. Cào giá vàng Việt Nam
+      - name: Cập nhật giá vàng Việt Nam
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        
         run: |
           python data_pipeline/vn_gold_crawler.py
+
+      # 6. Cào giá nhiên liệu (xăng, dầu)
+      - name: Cập nhật giá nhiên liệu
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
           python data_pipeline/vn_fuel_crawler.py
+
+      # 7. Cập nhật dữ liệu thị trường
+      - name: Cập nhật dữ liệu thị trường
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
           python data_pipeline/market_data.py
+
+      # 8. Cào tin tức Việt Nam + Gemini phân tích
+      - name: Cập nhật tin tức Việt Nam
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python data_pipeline/vn_news_crawler.py
+
+      # 9. Hoàn tất và ghi thời gian thực thi
+      - name: Hoàn tất
+        run: |
+          echo "=========================================="
+          echo "AI GOLD OIL DATA PIPELINE HOÀN TẤT"
+          echo "=========================================="
+          echo "Thời gian UTC:"
+          date -u
+          echo "Thời gian Việt Nam:"
+          TZ=Asia/Ho_Chi_Minh date
+          echo "=========================================="
